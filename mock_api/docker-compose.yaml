@@ -1,0 +1,15 @@
+version: '3.7'
+services:
+
+  mock_api:
+    hostname: mock_api
+    build:
+      dockerfile: mock_api/Dockerfile
+      context: ..
+    image: spiritmight/mock_api:latest
+    restart: always
+
+networks:
+ default:
+   name: spiritmight
+   driver: bridge
