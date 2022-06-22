@@ -30,13 +30,14 @@ logger = logging.getLogger("Mapping")
 requests = {}
 
 
-
 def handler(request: web.Request, exc: RateLimitExceeded):
     # If for some reason you want to allow the request, return aiohttplimitertest.Allow().
-    logger.warning('429')
-    return web.json_response({'Oh': 'No'}, status=429)
+    logger.warning("429")
+    return web.json_response({"Oh": "No"}, status=429)
+
 
 limiter = Limiter(keyfunc=default_keyfunc, error_handler=handler)
+
 
 @limiter.limit("500/10")
 async def pseudo_handler(request: web.Request) -> web.Response:
@@ -51,15 +52,17 @@ async def pseudo_handler(request: web.Request) -> web.Response:
             del requests[prev[0]]
         requests[seconds] = 0
     requests[seconds] += 1
-    #p.pprint(requests)
-    return web.json_response({'All': 'Good'},
-                             headers={
-                                 'X-App-Rate-Limit': '500:10,30000:600',
-                                 'X-App-Rate-Limit-Count': '500:10,30000:600',
-                                 'X-Method-Rate-Limit': '500:10',
-                                 'X-Method-Rate-Limit-Count': '500:10',
-                                 'mimetype':''
-                             })
+    # p.pprint(requests)
+    return web.json_response(
+        {"All": "Good"},
+        headers={
+            "X-App-Rate-Limit": "500:10,30000:600",
+            "X-App-Rate-Limit-Count": "500:10,30000:600",
+            "X-Method-Rate-Limit": "500:10",
+            "X-Method-Rate-Limit-Count": "500:10",
+            "mimetype": "",
+        },
+    )
 
 
 async def init_app():

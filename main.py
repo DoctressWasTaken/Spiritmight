@@ -15,8 +15,8 @@ pp = pprint.PrettyPrinter(indent=4)
 is_mock = False
 api_url = "https?:\/\/([a-z12]{2,8}).api.riotgames.com(.*)"
 if "DEBUG" in os.environ:
-    is_mock = api_url != os.environ.get('API_URL', api_url)
-    api_url = os.environ.get('API_URL', api_url)  # Can be replaced only when DEBUG
+    is_mock = api_url != os.environ.get("API_URL", api_url)
+    api_url = os.environ.get("API_URL", api_url)  # Can be replaced only when DEBUG
     logging.basicConfig(
         level=logging.DEBUG, format="%(levelname)8s %(asctime)s %(name)15s| %(message)s"
     )
@@ -66,10 +66,14 @@ class Mapping:
         )
         # TODO: If multiple copies of the service are started this might lead to multiple scripts
         #   And with it to parallel executions of said script (unsure)
-        self.logging.warning("Safety delay of %s second(s).", os.environ.get('DELAY', 0))
+        self.logging.warning(
+            "Safety delay of %s second(s).", os.environ.get("DELAY", 0)
+        )
         with open("scripts/permit_handler.lua") as permit:
             permit_script = permit.read()
-            permit_script = permit_script.replace('{{DELAY}}', os.environ.get('DELAY', 0))
+            permit_script = permit_script.replace(
+                "{{DELAY}}", os.environ.get("DELAY", 0)
+            )
             self.permit = await self.redis.script_load(permit_script)
             self.logging.info(self.permit)
         with open("scripts/update_ratelimits.lua") as update:
