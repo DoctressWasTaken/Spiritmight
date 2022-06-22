@@ -23,7 +23,7 @@ async def fetch(session, url):
 
 
 async def worker(session):
-    url = "http://mock_api/euw1/lol/summoner/v4/summoners/by-name/Doctress"
+    url = "http://mock_api/kr/lol/summoner/v4/summoners/by-name/Doctress"
     await asyncio.sleep(random.random() * 10)
     while True:
         async with session.get(url, proxy=proxy) as resp:

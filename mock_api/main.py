@@ -40,10 +40,25 @@ limiter = Limiter(keyfunc=default_keyfunc, error_handler=handler)
 
 
 @limiter.limit("500/10")
+async def limiter_method(request):
+    return
+
+
 async def pseudo_handler(request: web.Request) -> web.Response:
     """Pseudo handler that should never be called."""
     global requests
-    await asyncio.sleep(random.random())
+    wait = 0
+    if 'euw1' in request.path:
+        wait = 0.05
+    elif 'kr' in request.path:
+        wait = 0.25
+    elif 'na1' in request.path:
+        wait = 0.1
+    await asyncio.sleep(wait * (1 + random.random() / 2 - 0.5))
+    try:
+        await limiter_method(request)
+    except Exception as err:
+        logging.warning(err)
     seconds = str(int(datetime.now().timestamp()) // 10 * 10)
     if seconds not in requests:
         prev = list(requests.keys())
