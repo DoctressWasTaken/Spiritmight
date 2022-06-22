@@ -55,3 +55,9 @@ docker network create spiritmight
 docker-compose build
 docker-compose up -d
 ```
+
+### Mock API
+
+Start the container in the mock_api/ folder.  
+Set `DEBUG=True` and un-comment the `API_URL` parameter.  
+Now all requests should be directed to the mock API container instead.
