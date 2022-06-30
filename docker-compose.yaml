@@ -23,5 +23,5 @@ services:
 
 networks:
  default:
-   name: spiritmight
+   name: lightshield
    driver: bridge

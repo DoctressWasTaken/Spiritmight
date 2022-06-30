@@ -140,7 +140,7 @@ class Mapping:
                             *[int(x) for x in app_limits + method_limits],
                         ]
                         await self.redis.evalsha(*params)
-                    if response.status == 429:
+                    if response.status == 429 and response.headers.get('X-Rate-Limit-Type') == 'service':
                         retry_after = response.headers.get('Retry-After', '1').strip()
                         await self.redis.setex(
                             endpoint_global_limit,
@@ -150,7 +150,8 @@ class Mapping:
                         if 'X-Rate-Limit-Type' in response.headers:
                             self.logging.warning("%i | %s | %s ", response.status,
                                                  response.headers.get('X-Rate-Limit-Type'), url)
-                        self.logging.warning("%i | %s ", response.status, url)
+                        else:
+                            self.logging.warning("%i | %s ", response.status, url)
                         return web.json_response({},
                                                  status=response.status,
                                                  headers={header: response.headers[header] for header in
