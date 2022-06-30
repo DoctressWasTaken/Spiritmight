@@ -13,13 +13,14 @@ import random
 pp = pprint.PrettyPrinter(indent=4)
 
 is_mock = False
-api_url = "https?:\/\/([a-z12]{2,8}).api.riotgames.com(.*)"
-if "DEBUG" in os.environ:
+api_url = "https?:\/\/([a-z12]{2,8}).api.riotgames.com([^?]*)"
+if "DEBUG" in os.environ and os.environ.get('DEBUG') == 'True':
     is_mock = api_url != os.environ.get("API_URL", api_url)
     api_url = os.environ.get("API_URL", api_url)  # Can be replaced only when DEBUG
     logging.basicConfig(
         level=logging.DEBUG, format="%(levelname)8s %(asctime)s %(name)15s| %(message)s"
     )
+    logging.debug("Running debug level.")
 else:
     logging.basicConfig(
         level=logging.INFO, format="%(levelname)8s %(asctime)s %(name)15s| %(message)s"
@@ -36,7 +37,6 @@ class Mapping:
 
     def __init__(self):
         self.logging = logging.getLogger("Mapping")
-        self.logging.setLevel(logging.INFO)
         self.env = os.environ.get("ENVIRONMENT", "riot_api_proxy")
         self.keys = {}
         for key in os.environ.get("API_KEY").split("|"):
@@ -52,11 +52,12 @@ class Mapping:
             placeholders = data["placeholders"]
             for cat in ep:
                 for endpoint in ep[cat]:
-                    regex = endpoint.replace("/", "\/")
+                    regex = endpoint.replace("/", "%")
                     for plc in re.findall("\{([a-zA-Z]*)}", endpoint):
                         regex = regex.replace(
-                            "{%s}" % plc, placeholders[plc].replace("/", "\\/")
+                            "{%s}" % plc, placeholders[plc]
                         )
+                    self.logging.debug('Registered %s | %s', regex, endpoint)
                     self.endpoints[regex] = endpoint
         # pp.pprint(self.endpoints)
 
@@ -82,16 +83,9 @@ class Mapping:
 
     @web.middleware
     async def middleware(self, request, handler):
-        try:
-            assert self.redis
-        except:
-            await self.init(
-                host=os.environ.get("REDIS_HOST"),
-                port=int(os.environ.get("REDIS_PORT")),
-            )
-
         url = str(request.url)
         server, path = self.url_regex.findall(url)[0]
+        path = path.replace('/', '%')
         endpoint = None
         for ep in self.endpoints:
             match = re.fullmatch(ep, path)
@@ -99,7 +93,7 @@ class Mapping:
                 continue
             endpoint = ep
         if not endpoint:
-            self.logging.info("There was an error recognizing the endpoint for %s.")
+            self.logging.info("There was an error recognizing the endpoint for %s | %s.", server, path)
             return web.json_response({"error": "Endpoint not recognized."}, status=404)
 
         send_timestamp = datetime.now().timestamp() * 1000
@@ -117,9 +111,9 @@ class Mapping:
                 server,
                 endpoint,
             )
-            wait_time = await self.redis.evalsha(
-                self.permit, 2, server_key, endpoint_key, send_timestamp, request_id
-            )
+            endpoint_global_limit = "%s:global" % endpoint_key
+            params = [self.permit, 3, server_key, endpoint_key, endpoint_global_limit, send_timestamp, request_id]
+            wait_time = await self.redis.evalsha(*params)
             if wait_time > 0:
                 max_wait_time = max(max_wait_time, wait_time)
             else:
@@ -148,15 +142,23 @@ class Mapping:
                         method_limits,
                     )
                     if app_limits and method_limits:
-                        await self.redis.evalsha(
+                        params = [
                             self.update,
                             2,
                             server_key,
                             endpoint_key,
                             *[int(x) for x in app_limits + method_limits],
-                        )
+                        ]
+                        await self.redis.evalsha(*params)
+                    if response.status == 429:
+                        retry_after = response.headers.get('Retry-After', '1').strip()
+                        await self.redis.setex(
+                            endpoint_global_limit,
+                            int(retry_after),
+                                1)
                     if response.status != 200:
-                        self.logging.warning("%s %i", key, response.status)
+                        self.logging.warning("%s %i", self.keys[key]['hash'], response.status)
+                        self.logging.debug(response.headers)
                         return web.json_response({}, status=response.status)
                     result = await response.json()
                     return web.json_response(result)
@@ -172,6 +174,8 @@ async def init_app():
     mapping = Mapping()
     app = web.Application(middlewares=[mapping.middleware])
     app.add_routes([web.get("/", mapping.pseudo_handler)])
+    await mapping.init(host=os.environ.get("REDIS_HOST"),
+                       port=int(os.environ.get("REDIS_PORT")), )
     return app
 
 

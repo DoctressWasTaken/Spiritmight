@@ -44,6 +44,13 @@ local request_id = ARGV[2]
 
 local server = KEYS[1]
 local endpoint = KEYS[2]
+local endpoint_global_limit  = KEYS[3]
+
+local global_limit = tonumber(redis.call('pttl', endpoint_global_limit))
+if global_limit > 0 then
+    return global_limit
+end
+
 local wait_until = check_limits(server, timestamp)
 -- redis.log(redis.LOG_WARNING, "Server"..wait_until)
 wait_until = math.max(wait_until, check_limits(endpoint, timestamp))
