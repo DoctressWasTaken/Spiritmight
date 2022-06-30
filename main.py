@@ -57,7 +57,7 @@ class Mapping:
                         regex = regex.replace(
                             "{%s}" % plc, placeholders[plc]
                         )
-                    self.logging.debug('Registered %s | %s', regex, endpoint)
+                    self.logging.info('Registered %s | %s', regex, endpoint)
                     self.endpoints[regex] = endpoint
         # pp.pprint(self.endpoints)
 
@@ -131,16 +131,6 @@ class Mapping:
                     method_limits = None
                     if method_limits := headers.get("X-Method-Rate-Limit"):
                         method_limits = method_limits.split(",")[0].split(":")
-                    self.logging.debug(
-                        "%s\t%s\t%s\t%s\t%s\t%s\t%s",
-                        key,
-                        headers.get("X-App-Rate-Limit"),
-                        headers.get("X-App-Rate-Limit-Count"),
-                        headers.get("X-Method-Rate-Limit"),
-                        headers.get("X-Method-Rate-Limit-Count"),
-                        app_limits,
-                        method_limits,
-                    )
                     if app_limits and method_limits:
                         params = [
                             self.update,
@@ -155,13 +145,19 @@ class Mapping:
                         await self.redis.setex(
                             endpoint_global_limit,
                             int(retry_after),
-                                1)
+                            1)
                     if response.status != 200:
-                        self.logging.warning("%s %i", self.keys[key]['hash'], response.status)
-                        self.logging.debug(response.headers)
-                        return web.json_response({}, status=response.status)
+                        if 'X-Rate-Limit-Type' in response.headers:
+                            self.logging.warning("%i | %s | %s ", response.status,
+                                                 response.headers.get('X-Rate-Limit-Type'), url)
+                        self.logging.warning("%i | %s ", response.status, url)
+                        return web.json_response({},
+                                                 status=response.status,
+                                                 headers={header: response.headers[header] for header in
+                                                          response.headers if header.startswith('X')})
                     result = await response.json()
-                    return web.json_response(result)
+                    return web.json_response(result, headers={header: response.headers[header] for header in
+                                                          response.headers if header.startswith('X')})
         if max_wait_time > 0:
             return web.json_response({"Retry-At": max_wait_time / 1000}, status=430)
 
