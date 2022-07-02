@@ -3,3 +3,4 @@
 # Exclude env files with potential secret vars
 .env
 secrets.env
+secrets.yaml
