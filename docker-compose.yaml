@@ -6,7 +6,7 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
-    image: lightshield/spiritmight:latest
+    image: doctress/spiritmight:latest
     restart: always
     environment:
       - API_KEY=${API_KEY}
