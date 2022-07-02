@@ -24,7 +24,7 @@ causes slight loss of performance. Can be deactivated, **untested**.
 
 
 ### Config variables:
-*Put them in **config.env** or update the compose file.*
+*Included in the compose file.*
 
 ```dotenv
 # Prefix for redis keys (in case you run into overlap in naming schemas)
