@@ -13,6 +13,7 @@ aioredis = "^2.0.1"
 PyYAML = "^6.0"
 gunicorn = "^20.1.0"
 aiohttp-ratelimiter = "^3.5.3"
+uvloop = "^0.16.0"
 
 [tool.poetry.dev-dependencies]
 
