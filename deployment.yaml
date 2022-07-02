@@ -30,7 +30,7 @@ spec:
           # Use secrets_template.yaml to create a secrets.yaml and store your API KEYs in the secret
           envFrom:
             - secretRef:
-                name: API_KEYS
+                name: api-keys
       hostname: ratelimiter
       restartPolicy: Always
 ---
