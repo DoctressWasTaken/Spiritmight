@@ -9,6 +9,9 @@ import os
 from datetime import datetime
 import hashlib
 import random
+import uvloop
+
+uvloop.install()
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -158,7 +161,7 @@ class Mapping:
                                                           response.headers if header.startswith('X')})
                     result = await response.json()
                     return web.json_response(result, headers={header: response.headers[header] for header in
-                                                          response.headers if header.startswith('X')})
+                                                              response.headers if header.startswith('X')})
         if max_wait_time > 0:
             return web.json_response({"Retry-At": max_wait_time / 1000}, status=430)
 
