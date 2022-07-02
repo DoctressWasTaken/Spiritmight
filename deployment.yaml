@@ -1,51 +1,61 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    service: ratelimiter
-  name: ratelimiter
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      service: ratelimiter
-  strategy:
-    type: Recreate
-  template:
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: apps/v1
+    kind: Deployment
     metadata:
       labels:
         service: ratelimiter
+      name: ratelimiter
     spec:
-      containers:
-        - name: ratelimiter
-          #This uses the locally built image, before deploying you need to build the container first
-          image: 'spiritmight/proxy:latest'
-          ports:
-              #Port used for accessing the proxy
-            - containerPort: 8888
-              name: proxy-port
-          env:
-            - name: ENVIRONMENT
-              value: "riot_api_proxy"
-          # Use secrets_template.yaml to create a secrets.yaml and store your API KEYs in the secret
-          envFrom:
-            - secretRef:
-                name: api-keys
-      hostname: ratelimiter
-      restartPolicy: Always
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: ratelimiter
-  labels:
-    service: ratelimiter
-spec:
-  # Create an externally reachable load balancer.
-  type: LoadBalancer
-  ports:
-    - port: 8888
-      name: proxy
-  selector:
-    service: ratelimiter
+      replicas: 1
+      selector:
+        matchLabels:
+          service: ratelimiter
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            service: ratelimiter
+        spec:
+          containers:
+            - name: ratelimiter
+              image: 'doctress/spiritmight:latest'
+              ports:
+                #Port used for accessing the proxy
+                - containerPort: 8888
+                  name: proxy-port
+              env:
+                #Prefix for Redis
+                - name: ENVIRONMENT
+                  value: "riot_api_proxy"
+                - name: REDIS_HOST
+                  value: "redis"
+                - name: REDIS_PORT
+                  value: "6379"
+                - name: DEBUG
+                  value: "False"
+                #Extra duration added onto bucket length in seconds
+                - name: DELAY
+                  value: "1"
+              # Use secrets_template.yaml to create a secrets.yaml and store your API KEYs in the secret
+              envFrom:
+                - secretRef:
+                    name: api-keys
+          hostname: ratelimiter
+          restartPolicy: Always
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ratelimiter
+      labels:
+        service: ratelimiter
+    spec:
+      # Create an externally reachable load balancer.
+      type: LoadBalancer
+      ports:
+        - port: 8888
+          name: proxy
+      selector:
+        service: ratelimiter

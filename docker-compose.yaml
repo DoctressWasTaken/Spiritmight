@@ -6,12 +6,19 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
-    image: spiritmight/proxy:latest
+    image: doctress/spiritmight:latest
     restart: always
-    env_file:
-      - config.env
     environment:
       - API_KEY=${API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEBUG=False
+      # Prefix for redis
+      - ENVIRONMENT=riot_api_proxy
+      # Extra duration added onto bucket length in seconds
+      - DELAY=1
+      # Testing for mocking
+      #- API_URL="http://mock_api/([a-z12]{2,8})(.*)"
     ports:
       - 0.0.0.0:8888:8888
 
