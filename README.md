@@ -56,6 +56,19 @@ docker-compose build
 docker-compose up -d
 ```
 
+### Running in Kubernetes
+
+For running in Kubernetes it mandatory to have a LoadBalancer provider in your cluster. Without said LB provider the Proxy will not be reachable.
+If you want to change the envs do so in the `deployment.yaml` as for the API Key use the supplied `secrets_template.yaml` to create a `secrets.yaml` and
+fill in your API Keys in the aforementioned format. 
+
+```shell
+docker-compose build
+kubectl apply -f secrets.yaml
+kubectl apply -f deployment.yaml
+```
+
+
 ### Mock API
 
 Start the container in the mock_api/ folder.  
