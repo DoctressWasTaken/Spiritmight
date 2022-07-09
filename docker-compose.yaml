@@ -6,7 +6,7 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
-    image: doctress/spiritmight:latest
+    image: doctress/spiritmight:dev
     restart: always
     environment:
       - API_KEY=${API_KEY}
@@ -17,6 +17,7 @@ services:
       - ENVIRONMENT=riot_api_proxy
       # Extra duration added onto bucket length in seconds
       - DELAY=1
+      - INTERNAL_DELAY=1
       # Testing for mocking
       #- API_URL="http://mock_api/([a-z12]{2,8})(.*)"
     ports:

@@ -71,12 +71,12 @@ class Mapping:
         # TODO: If multiple copies of the service are started this might lead to multiple scripts
         #   And with it to parallel executions of said script (unsure)
         self.logging.warning(
-            "Safety delay of %s second(s).", os.environ.get("DELAY", 0)
+            "Internal buffer of %s second(s).", os.environ.get("INTERNAL_DELAY", 1)
         )
         with open("scripts/permit_handler.lua") as permit:
             permit_script = permit.read()
             permit_script = permit_script.replace(
-                "{{DELAY}}", os.environ.get("DELAY", 0)
+                "INTERNAL_DELAY", os.environ.get("INTERNAL_DELAY", 1)
             )
             self.permit = await self.redis.script_load(permit_script)
             self.logging.info(self.permit)
@@ -105,8 +105,7 @@ class Mapping:
         key_order = list(self.keys.keys())
         random.shuffle(key_order)
         max_wait_time = 0
-        while key_order:
-            key = key_order.pop()
+        for key in key_order:
             server_key = "%s:%s:%s" % (self.env, self.keys[key]["hash"], server)
             endpoint_key = "%s:%s:%s:%s" % (
                 self.env,
@@ -119,53 +118,54 @@ class Mapping:
             wait_time = await self.redis.evalsha(*params)
             if wait_time > 0:
                 max_wait_time = max(max_wait_time, wait_time)
-            else:
-                if not is_mock:
-                    url = url.replace("http:", "https:")
-                try:
-                    async with self.keys[key]["session"].get(url) as response:
-                        app_limits = None
-                        if app_limits := response.headers.get("X-App-Rate-Limit"):
-                            if app_limits == "20:1,100:120":
-                                app_limits = ["15", "18"]
-                            else:
-                                app_limits = app_limits.split(",")[0].split(":")
+                continue
 
-                        method_limits = None
-                        if method_limits := response.headers.get("X-Method-Rate-Limit"):
-                            method_limits = method_limits.split(",")[0].split(":")
-                        if app_limits and method_limits:
-                            params = [
-                                self.update,
-                                2,
-                                server_key,
-                                endpoint_key,
-                                *[int(x) for x in app_limits + method_limits],
-                            ]
-                            await self.redis.evalsha(*params)
-                        if response.status == 429 and response.headers.get('X-Rate-Limit-Type') == 'service':
-                            retry_after = response.headers.get('Retry-After', '1').strip()
-                            await self.redis.setex(
-                                endpoint_global_limit,
-                                int(retry_after),
-                                1)
-                        if response.status != 200:
-                            if 'X-Rate-Limit-Type' in response.headers:
-                                self.logging.warning("%i | %s | %s ", response.status,
-                                                     response.headers.get('X-Rate-Limit-Type'), url)
-                            else:
-                                self.logging.warning("%i | %s ", response.status, url)
-                            return web.json_response({},
-                                                     status=response.status,
-                                                     headers={header: response.headers[header] for header in
+            if wait_time < 0:
+                await asyncio.sleep(-wait_time / 1000)
+
+            if not is_mock:
+                url = url.replace("http:", "https:")
+            try:
+                async with self.keys[key]["session"].get(url) as response:
+                    if app_limits := response.headers.get("X-App-Rate-Limit"):
+                        if app_limits == "20:1,100:120":
+                            app_limits = ["15", "18"]
+                        else:
+                            app_limits = app_limits.split(",")[0].split(":")
+
+                    if method_limits := response.headers.get("X-Method-Rate-Limit"):
+                        method_limits = method_limits.split(",")[0].split(":")
+                    if app_limits and method_limits:
+                        params = [
+                            self.update,
+                            2,
+                            server_key,
+                            endpoint_key,
+                            *[int(x) for x in app_limits + method_limits],
+                        ]
+                        await self.redis.evalsha(*params)
+                    if response.status == 429 and response.headers.get('X-Rate-Limit-Type') == 'service':
+                        retry_after = response.headers.get('Retry-After', '1').strip()
+                        await self.redis.setex(
+                            endpoint_global_limit,
+                            int(retry_after),
+                            1)
+                    if response.status != 200:
+                        if 'X-Rate-Limit-Type' in response.headers:
+                            self.logging.warning("%i | %s | %s ", response.status,
+                                                 response.headers.get('X-Rate-Limit-Type'), url)
+                        else:
+                            self.logging.warning("%i | %s ", response.status, url)
+                        return web.json_response({},
+                                                 status=response.status,
+                                                 headers={header: response.headers[header] for header in
+                                                          response.headers if header.startswith('X')})
+                    result = await response.json()
+                    return web.json_response(result, headers={header: response.headers[header] for header in
                                                               response.headers if header.startswith('X')})
-                        result = await response.json()
-                        return web.json_response(result, headers={header: response.headers[header] for header in
-                                                                  response.headers if header.startswith('X')})
-                except  aiohttp.ServerDisconnectedError:
-                    return web.json_response({"Error": "API Disconnected"}, status=500)
-
-        if max_wait_time > 0:
+            except aiohttp.ServerDisconnectedError:
+                return web.json_response({"Error": "API Disconnected"}, status=500)
+        else:
             return web.json_response({"Retry-At": max_wait_time / 1000}, status=430)
 
     async def pseudo_handler(request: web.Request) -> web.Response:
