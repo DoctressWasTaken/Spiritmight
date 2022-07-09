@@ -21,7 +21,7 @@ services:
       # Testing for mocking
       #- API_URL="http://mock_api/([a-z12]{2,8})(.*)"
     ports:
-      - 0.0.0.0:8888:8888
+      - "0.0.0.0:8888:8888"
 
   ### Storage
   redis:
