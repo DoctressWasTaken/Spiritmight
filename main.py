@@ -73,10 +73,15 @@ class Mapping:
         self.logging.warning(
             "Internal buffer of %s second(s).", os.environ.get("INTERNAL_DELAY", 1)
         )
+        self.logging.warning(
+            "Extra bucket length of %s second(s).", os.environ.get("EXTRA_LENGTH", 1)
+        )
         with open("scripts/permit_handler.lua") as permit:
             permit_script = permit.read()
             permit_script = permit_script.replace(
                 "INTERNAL_DELAY", os.environ.get("INTERNAL_DELAY", 1)
+            ).replace(
+                "EXTRA_LENGTH", os.environ.get("EXTRA_LENGTH", 1)
             )
             self.permit = await self.redis.script_load(permit_script)
             self.logging.info(self.permit)

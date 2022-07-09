@@ -16,7 +16,7 @@ services:
       # Prefix for redis
       - ENVIRONMENT=riot_api_proxy
       # Extra duration added onto bucket length in seconds
-      - DELAY=1
+      - EXTRA_LENGTH=0.5
       - INTERNAL_DELAY=1
       # Testing for mocking
       #- API_URL="http://mock_api/([a-z12]{2,8})(.*)"
@@ -30,6 +30,6 @@ services:
     restart: always
 
 networks:
- default:
-   name: lightshield
-   driver: bridge
+  default:
+    name: lightshield
+    driver: bridge

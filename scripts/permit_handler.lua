@@ -56,7 +56,7 @@ local function update_limits(key, request_id, timestamp, additional_wait)
     local max = tonumber(redis.call('hget', key, 'max'))
     local requests_key = key .. ':requests'
 
-    redis.call('zadd', requests_key, timestamp + duration * 1000 + additional_wait, request_id)
+    redis.call('zadd', requests_key, timestamp + duration * 1000 + additional_wait + EXTRA_LENGTH * 1000, request_id)
 
 end
 
