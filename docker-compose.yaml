@@ -16,7 +16,7 @@ services:
       # Prefix for redis
       - ENVIRONMENT=riot_api_proxy
       # Extra duration added onto bucket length in seconds
-      - EXTRA_LENGTH=0.5
+      - EXTRA_LENGTH=1
       - INTERNAL_DELAY=1
       # Testing for mocking
       #- API_URL="http://mock_api/([a-z12]{2,8})(.*)"

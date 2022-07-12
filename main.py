@@ -168,7 +168,7 @@ class Mapping:
                     result = await response.json()
                     return web.json_response(result, headers={header: response.headers[header] for header in
                                                               response.headers if header.startswith('X')})
-            except aiohttp.ServerDisconnectedError:
+            except (aiohttp.ServerDisconnectedError, aiohttp.ClientConnectorError):
                 return web.json_response({"Error": "API Disconnected"}, status=500)
         else:
             return web.json_response({"Retry-At": max_wait_time / 1000}, status=430)
