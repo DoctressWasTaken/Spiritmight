@@ -69,7 +69,6 @@ end
 
 if additional_wait <= 1000 * INTERNAL_DELAY then
     update_limits(server, request_id, timestamp, additional_wait)
-    redis.call('hincrby', server .. ':tracking', math.floor(timestamp / 10000), 1)
     update_limits(endpoint, request_id, timestamp, additional_wait)
 else
     return timestamp + additional_wait
