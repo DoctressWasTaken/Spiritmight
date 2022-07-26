@@ -11,7 +11,7 @@ local function check_limits(key, timestamp, customlimit)
             -- count remaining
             local count = redis.call('zcount', requests_key, -1, "+inf")
             -- check against custom limit
-            if customlimit ~= nil then
+            if tonumber(customlimit) >= 0 then
                 if count >= tonumber(customlimit) then
                     return 1000
                 end
@@ -64,10 +64,10 @@ if global_limit > 0 then
     return global_limit
 end
 
-local wait_until = check_limits(server, timestamp, nil)
-wait_until = math.max(wait_until, check_limits(endpoint, timestamp))
+local wait_until = check_limits(server, timestamp, -1)
+wait_until = math.max(wait_until, check_limits(endpoint, timestamp, ratelimit))
 
-local additional_wait = internal_wait(server, timestamp, ratelimit)
+local additional_wait = internal_wait(server, timestamp)
 additional_wait = math.max(additional_wait, internal_wait(endpoint, timestamp), 0)
 
 if wait_until > 0 then
