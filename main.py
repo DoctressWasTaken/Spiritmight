@@ -17,7 +17,7 @@ pp = pprint.PrettyPrinter(indent=4)
 
 is_mock = False
 api_url = "https?:\/\/([a-z12]{2,8}).api.riotgames.com([^?]*)"
-if "DEBUG" in os.environ and os.environ.get('DEBUG') == 'True':
+if "DEBUG" in os.environ and os.environ.get("DEBUG") == "True":
     is_mock = api_url != os.environ.get("API_URL", api_url)
     api_url = os.environ.get("API_URL", api_url)  # Can be replaced only when DEBUG
     logging.basicConfig(
@@ -57,11 +57,16 @@ class Mapping:
                 for endpoint in ep[cat]:
                     regex = endpoint.replace("/", "%")
                     for plc in re.findall("\{([a-zA-Z]*)}", endpoint):
-                        regex = regex.replace(
-                            "{%s}" % plc, placeholders[plc]
-                        )
-                    self.logging.info('Registered %s | %s', regex, endpoint)
+                        regex = regex.replace("{%s}" % plc, placeholders[plc])
+                    self.logging.info("Registered %s | %s", regex, endpoint)
                     self.endpoints[regex] = endpoint
+                    self.endpoints[id] = (
+                        endpoint.split("/v")[1]
+                        .replace("/", "-")
+                        .replace("{", "")
+                        .replace("}", "")
+                    )
+
         # pp.pprint(self.endpoints)
 
     async def init(self, host="localhost", port=6379):
@@ -80,9 +85,7 @@ class Mapping:
             permit_script = permit.read()
             permit_script = permit_script.replace(
                 "INTERNAL_DELAY", os.environ.get("INTERNAL_DELAY", 1)
-            ).replace(
-                "EXTRA_LENGTH", os.environ.get("EXTRA_LENGTH", 1)
-            )
+            ).replace("EXTRA_LENGTH", os.environ.get("EXTRA_LENGTH", 1))
             self.permit = await self.redis.script_load(permit_script)
             self.logging.info(self.permit)
         with open("scripts/update_ratelimits.lua") as update:
@@ -93,7 +96,7 @@ class Mapping:
     async def middleware(self, request, handler):
         url = str(request.url)
         server, path = self.url_regex.findall(url)[0]
-        path = path.replace('/', '%')
+        path = path.replace("/", "%")
         endpoint = None
         for ep in self.endpoints:
             match = re.fullmatch(ep, path)
@@ -101,7 +104,9 @@ class Mapping:
                 continue
             endpoint = ep
         if not endpoint:
-            self.logging.info("There was an error recognizing the endpoint for %s | %s.", server, path)
+            self.logging.error(
+                "There was an error recognizing the endpoint for %s | %s.", server, path
+            )
             return web.json_response({"error": "Endpoint not recognized."}, status=404)
 
         send_timestamp = datetime.now().timestamp() * 1000
@@ -119,7 +124,17 @@ class Mapping:
                 endpoint,
             )
             endpoint_global_limit = "%s:global" % endpoint_key
-            params = [self.permit, 3, server_key, endpoint_key, endpoint_global_limit, send_timestamp, request_id]
+            ratelimit = request.headers.get("ratelimit", None)
+            params = [
+                self.permit,
+                3,
+                server_key,
+                endpoint_key,
+                endpoint_global_limit,
+                send_timestamp,
+                request_id,
+                ratelimit,
+            ]
             wait_time = await self.redis.evalsha(*params)
             if wait_time > 0:
                 max_wait_time = max(max_wait_time, wait_time)
@@ -149,25 +164,42 @@ class Mapping:
                             *[int(x) for x in app_limits + method_limits],
                         ]
                         await self.redis.evalsha(*params)
-                    if response.status == 429 and response.headers.get('X-Rate-Limit-Type') == 'service':
-                        retry_after = response.headers.get('Retry-After', '1').strip()
+                    if (
+                        response.status == 429
+                        and response.headers.get("X-Rate-Limit-Type") == "service"
+                    ):
+                        retry_after = response.headers.get("Retry-After", "1").strip()
                         await self.redis.setex(
-                            endpoint_global_limit,
-                            int(retry_after),
-                            1)
+                            endpoint_global_limit, int(retry_after), 1
+                        )
                     if response.status != 200:
-                        if 'X-Rate-Limit-Type' in response.headers:
-                            self.logging.warning("%i | %s | %s ", response.status,
-                                                 response.headers.get('X-Rate-Limit-Type'), url)
+                        if "X-Rate-Limit-Type" in response.headers:
+                            self.logging.warning(
+                                "%i | %s | %s ",
+                                response.status,
+                                response.headers.get("X-Rate-Limit-Type"),
+                                url,
+                            )
                         else:
                             self.logging.warning("%i | %s ", response.status, url)
-                        return web.json_response({},
-                                                 status=response.status,
-                                                 headers={header: response.headers[header] for header in
-                                                          response.headers if header.startswith('X')})
+                        return web.json_response(
+                            {},
+                            status=response.status,
+                            headers={
+                                header: response.headers[header]
+                                for header in response.headers
+                                if header.startswith("X")
+                            },
+                        )
                     result = await response.json()
-                    return web.json_response(result, headers={header: response.headers[header] for header in
-                                                              response.headers if header.startswith('X')})
+                    return web.json_response(
+                        result,
+                        headers={
+                            header: response.headers[header]
+                            for header in response.headers
+                            if header.startswith("X")
+                        },
+                    )
             except (aiohttp.ServerDisconnectedError, aiohttp.ClientConnectorError):
                 return web.json_response({"Error": "API Disconnected"}, status=500)
         else:
@@ -182,8 +214,10 @@ async def init_app():
     mapping = Mapping()
     app = web.Application(middlewares=[mapping.middleware])
     app.add_routes([web.get("/", mapping.pseudo_handler)])
-    await mapping.init(host=os.environ.get("REDIS_HOST"),
-                       port=int(os.environ.get("REDIS_PORT")), )
+    await mapping.init(
+        host=os.environ.get("REDIS_HOST"),
+        port=int(os.environ.get("REDIS_PORT")),
+    )
     return app
 
 

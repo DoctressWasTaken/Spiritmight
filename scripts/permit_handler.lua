@@ -1,4 +1,4 @@
-local function check_limits(key, timestamp)
+local function check_limits(key, timestamp, customlimit)
     -- Get permission to register a new request
     if redis.call('exists', key) == 1 then
         local duration = tonumber(redis.call('hget', key, 'duration'))
@@ -10,6 +10,12 @@ local function check_limits(key, timestamp)
             redis.call('zremrangebyscore', requests_key, 0, timestamp)
             -- count remaining
             local count = redis.call('zcount', requests_key, -1, "+inf")
+            -- check against custom limit
+            if customlimit ~= nil then
+                if count >= tonumber(customlimit) then
+                    return 1000
+                end
+            end
             -- check against limit
             if count >= max then
                 local wait_until = tonumber(redis.call('zrange', requests_key, 0, 0, 'WITHSCORES')[2])
@@ -47,6 +53,7 @@ end
 
 local timestamp = ARGV[1]
 local request_id = ARGV[2]
+local ratelimit = ARGV[3]
 
 local server = KEYS[1]
 local endpoint = KEYS[2]
@@ -57,10 +64,10 @@ if global_limit > 0 then
     return global_limit
 end
 
-local wait_until = check_limits(server, timestamp)
+local wait_until = check_limits(server, timestamp, nil)
 wait_until = math.max(wait_until, check_limits(endpoint, timestamp))
 
-local additional_wait = internal_wait(server, timestamp)
+local additional_wait = internal_wait(server, timestamp, ratelimit)
 additional_wait = math.max(additional_wait, internal_wait(endpoint, timestamp), 0)
 
 if wait_until > 0 then
