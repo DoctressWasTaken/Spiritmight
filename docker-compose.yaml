@@ -14,10 +14,10 @@ services:
       - REDIS_PORT=6379
       - DEBUG=False
       # Prefix for redis
-      - ENVIRONMENT=riot_api_proxy
+      - ENVIRONMENT=rgapi
       # Extra duration added onto bucket length in seconds
-      - EXTRA_LENGTH=1
-      - INTERNAL_DELAY=1
+      - EXTRA_LENGTH=0.5
+      - INTERNAL_DELAY=0
       # Testing for mocking
       #- API_URL="http://mock_api/([a-z12]{2,8})(.*)"
     ports:
@@ -31,5 +31,5 @@ services:
 
 networks:
   default:
-    name: lightshield
+    name: spiritmight
     driver: bridge

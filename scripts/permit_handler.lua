@@ -38,7 +38,7 @@ local function internal_wait(key, timestamp)
         return 0
     end
     local fill_percentage = count / max
-    local required_distance = fill_percentage * (duration + EXTRA_LENGTH) -- If almost full delay by up to the full bucket length
+    local required_distance = fill_percentage * (duration) * 0.9 -- If almost full delay by up to the full bucket length
     local oldest_request = tonumber(redis.call('zrange', requests_key, 0, 0, 'WITHSCORES')[2])
     local extra_wait = (oldest_request - duration * 1000 + required_distance * 1000) - timestamp
     return extra_wait
