@@ -5,5 +5,6 @@
 
 exec poetry run gunicorn main:init_app \
     --bind 0.0.0.0:8888 \
+    -w 8 \
     --worker-class aiohttp.GunicornWebWorker
 #exec poetry run python -u main.py
