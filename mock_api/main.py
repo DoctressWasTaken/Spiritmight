@@ -48,11 +48,11 @@ async def pseudo_handler(request: web.Request) -> web.Response:
     """Pseudo handler that should never be called."""
     global requests
     wait = 0
-    if 'euw1' in request.path:
+    if "euw1" in request.path:
         wait = 0.05
-    elif 'kr' in request.path:
+    elif "kr" in request.path:
         wait = 0.25
-    elif 'na1' in request.path:
+    elif "na1" in request.path:
         wait = 0.1
     await asyncio.sleep(wait * (1 + random.random() / 2 - 0.5))
     try:

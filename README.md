@@ -16,11 +16,8 @@ as the proxy target. An example setup using async python can be found in *client
 
 Because some requests to the API could be delayed due to ping/network there is a small possibility that some requests are
 counted towards the wrong bucket server side. As such the proxy adds an extra interval that delays the requests a bit which
-causes slight loss of performance. Can be deactivated, **untested**.
+causes slight loss of performance.
 
-**No high performance tests done yet.**
-
-**Can be scaled and put behind a load balancer.**
 
 
 ### Config variables:
@@ -28,10 +25,12 @@ causes slight loss of performance. Can be deactivated, **untested**.
 
 ```dotenv
 # Prefix for redis keys (in case you run into overlap in naming schemas)
-ENVIRONMENT=riot_api_proxy
+ENVIRONMENT=rgapi
 
-# Security Buffer
-DELAY=0.5
+# Length added to the bucket duration
+EXTRA_LENGTH=0.5
+# Extra length for which requests are buffered inside the proxy instead of being rejected
+INTERNAL_DELAY=0
 
 # For extra output
 DEBUG=False
@@ -41,7 +40,7 @@ REDIS_HOST=redis
 REDIS_PORT=6379
 ```
 
-In addition one or multiple api keys (multiple only if they share an obfuscation key) can be provided. Multiple
+In addition one or multiple api keys (multiple only if they **share an obfuscation** key) can be provided. Multiple
 keys need to be separated by `|` but without spaces.
 ```dotenv
 API_KEY=RGAPI-...|RGAPI-...

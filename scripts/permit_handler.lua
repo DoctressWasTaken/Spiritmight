@@ -1,23 +1,25 @@
-local function check_limits(key, timestamp)
+local function check_limits(key, timestamp, customlimit)
     -- Get permission to register a new request
-    local max_time = 0
     if redis.call('exists', key) == 1 then
         local duration = tonumber(redis.call('hget', key, 'duration'))
         local max = tonumber(redis.call('hget', key, 'max'))
-        local requests_key = key..':requests'
+        local requests_key = key .. ':requests'
         -- Check if requests key exists
         if redis.call('exists', requests_key) == 1 then
-            -- drop timeouts
+            -- drop blockers that have timed out
             redis.call('zremrangebyscore', requests_key, 0, timestamp)
             -- count remaining
-            local current_block = redis.call('zcount', requests_key, -1, "+inf")
-            -- redis.log(redis.LOG_WARNING, 'Tasks: '..current_block)
-            -- redis.log(redis.LOG_WARNING, 'Max: '..max)
-            -- redis.log(redis.LOG_WARNING, 'Key: '..key)
-
+            local count = redis.call('zcount', requests_key, -1, "+inf")
+            -- check against custom limit
+            if tonumber(customlimit) >= 0 then
+                if count >= tonumber(customlimit) then
+                    return 1000
+                end
+            end
             -- check against limit
-            if current_block >= max then
-                return tonumber(redis.call('zrange', requests_key, 0, 1, 'WITHSCORES')[2])
+            if count >= max then
+                local wait_until = tonumber(redis.call('zrange', requests_key, 0, 0, 'WITHSCORES')[2])
+                return wait_until
             end
         end
     else
@@ -26,41 +28,57 @@ local function check_limits(key, timestamp)
     return 0
 end
 
-
-local function update_limits(key, request_id, timestamp)
-    -- Register a new request
+local function internal_wait(key, timestamp)
+    -- Check if the limit is full enough to warrant a local wait
     local duration = tonumber(redis.call('hget', key, 'duration'))
     local max = tonumber(redis.call('hget', key, 'max'))
-    local requests_key = key..':requests'
-
-    redis.call('zadd', requests_key, timestamp + 1000 * (duration + {{DELAY}}), request_id)
-
+    local requests_key = key .. ':requests'
+    local count = redis.call('zcount', requests_key, -1, "+inf")
+    if count == 0 then
+        return 0
+    end
+    local fill_percentage = count / max
+    local required_distance = fill_percentage * (duration) * 0.9 -- If almost full delay by up to the full bucket length
+    local oldest_request = tonumber(redis.call('zrange', requests_key, 0, 0, 'WITHSCORES')[2])
+    local extra_wait = (oldest_request - duration * 1000 + required_distance * 1000) - timestamp
+    return extra_wait
 end
 
+local function update_limits(key, request_id, timestamp, additional_wait)
+    -- Register a new request
+    local duration = tonumber(redis.call('hget', key, 'duration'))
+    local requests_key = key .. ':requests'
+    redis.call('zadd', requests_key, timestamp + duration * 1000 + additional_wait + EXTRA_LENGTH * 1000, request_id)
+end
 
 local timestamp = ARGV[1]
 local request_id = ARGV[2]
-
+local ratelimit = ARGV[3]
 
 local server = KEYS[1]
 local endpoint = KEYS[2]
-local endpoint_global_limit  = KEYS[3]
+local endpoint_global_limit = KEYS[3]
 
 local global_limit = tonumber(redis.call('pttl', endpoint_global_limit))
 if global_limit > 0 then
     return global_limit
 end
 
-local wait_until = check_limits(server, timestamp)
--- redis.log(redis.LOG_WARNING, "Server"..wait_until)
-wait_until = math.max(wait_until, check_limits(endpoint, timestamp))
--- redis.log(redis.LOG_WARNING, "Wait until "..wait_until)
+local wait_until = check_limits(server, timestamp, -1)
+wait_until = math.max(wait_until, check_limits(endpoint, timestamp, ratelimit))
+
+local additional_wait = internal_wait(server, timestamp)
+additional_wait = math.max(additional_wait, internal_wait(endpoint, timestamp), 0)
 
 if wait_until > 0 then
-    return wait_until
+    return wait_until + additional_wait
 end
 
-update_limits(server, request_id, timestamp)
-update_limits(endpoint, request_id, timestamp)
+if additional_wait <= 1000 * INTERNAL_DELAY then
+    update_limits(server, request_id, timestamp, additional_wait)
+    update_limits(endpoint, request_id, timestamp, additional_wait)
+else
+    return timestamp + additional_wait
+end
 
-return 0
+return -additional_wait
