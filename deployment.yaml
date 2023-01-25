@@ -21,7 +21,7 @@ items:
         spec:
           containers:
             - name: ratelimiter
-              image: 'doctress/spiritmight:latest'
+              image: 'registry.yearin.lol/spiritmight:v170123'
               ports:
                 #Port used for accessing the proxy
                 - containerPort: 8888
@@ -31,13 +31,15 @@ items:
                 - name: ENVIRONMENT
                   value: "riot_api_proxy"
                 - name: REDIS_HOST
-                  value: "redis"
+                  value: "redis-spiritmight"
                 - name: REDIS_PORT
                   value: "6379"
                 - name: DEBUG
                   value: "False"
                 #Extra duration added onto bucket length in seconds
-                - name: DELAY
+                - name: INTERNAL_DELAY
+                  value: "1"
+                - name: EXTRA_LENGTH
                   value: "1"
               # Use secrets_template.yaml to create a secrets.yaml and store your API KEYs in the secret
               envFrom:
