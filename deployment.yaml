@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      labels:
+        service: ratelimiter
+      name: ratelimiter
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          service: ratelimiter
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            service: ratelimiter
+        spec:
+          containers:
+            - name: ratelimiter
+              image: 'registry.yearin.lol/spiritmight:v170123'
+              ports:
+                #Port used for accessing the proxy
+                - containerPort: 8888
+                  name: proxy-port
+              env:
+                #Prefix for Redis
+                - name: ENVIRONMENT
+                  value: "riot_api_proxy"
+                - name: REDIS_HOST
+                  value: "redis-spiritmight"
+                - name: REDIS_PORT
+                  value: "6379"
+                - name: DEBUG
+                  value: "False"
+                #Extra duration added onto bucket length in seconds
+                - name: INTERNAL_DELAY
+                  value: "1"
+                - name: EXTRA_LENGTH
+                  value: "1"
+              # Use secrets_template.yaml to create a secrets.yaml and store your API KEYs in the secret
+              envFrom:
+                - secretRef:
+                    name: api-keys
+          hostname: ratelimiter
+          restartPolicy: Always
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ratelimiter
+      labels:
+        service: ratelimiter
+    spec:
+      # Create an externally reachable load balancer.
+      type: LoadBalancer
+      ports:
+        - port: 8888
+          name: proxy
+      selector:
+        service: ratelimiter

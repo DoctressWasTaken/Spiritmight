@@ -6,7 +6,7 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
-    image: doctress/spiritmight:dev
+    image: doctress/spiritmight:latest
     restart: always
     environment:
       - API_KEY=${API_KEY}
@@ -14,14 +14,13 @@ services:
       - REDIS_PORT=6379
       - DEBUG=False
       # Prefix for redis
-      - ENVIRONMENT=rgapi
+      - ENVIRONMENT=riot_api_proxy
       # Extra duration added onto bucket length in seconds
-      - EXTRA_LENGTH=0.5
-      - INTERNAL_DELAY=0
+      - DELAY=1
       # Testing for mocking
       #- API_URL="http://mock_api/([a-z12]{2,8})(.*)"
     ports:
-      - "0.0.0.0:8888:8888"
+      - 0.0.0.0:8888:8888
 
   ### Storage
   redis:
@@ -30,6 +29,6 @@ services:
     restart: always
 
 networks:
-  default:
-    name: spiritmight
-    driver: bridge
+ default:
+   name: lightshield
+   driver: bridge
